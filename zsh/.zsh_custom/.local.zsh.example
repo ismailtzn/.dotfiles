@@ -1,0 +1,17 @@
+# ~/.zsh_local — machine-specific additions, NEVER committed
+# Copy this file to ~/.zsh_local and fill in what applies to this machine.
+#
+# This file is sourced at the end of ~/.zshrc (after all shared config).
+
+# Flutter SDK (adjust path to wherever you installed it)
+# export PATH="$HOME/flutter/bin:$PATH"
+
+# CUDA (if installed in a non-standard location)
+# export PATH="/usr/local/cuda/bin:$PATH"
+# export LD_LIBRARY_PATH="/usr/local/cuda/lib64:$LD_LIBRARY_PATH"
+
+# Machine-specific aliases
+# alias notify_break="firefox --kiosk ~/fun/break_notification/break.html"
+
+# Work credentials / tokens (prefer ~/.zsh_custom/.env for those)
+# export GITHUB_TOKEN=""

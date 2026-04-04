@@ -1,0 +1,26 @@
+# --- theme ---
+#theme = Catppuccin Mocha
+#theme = Catppuccin Macchiato
+theme = Dracula
+
+# --- font ---
+font-family = "MesloLGS NF Bold"
+font-size = 10
+
+#font-family = JetBrainsMono Nerd Font
+#font-size = 13
+
+# --- clipboard (OSC 52 — works with tmux) ---
+clipboard-read = allow
+clipboard-write = allow
+
+# --- window ---
+window-width = 96
+window-height = 24
+
+window-padding-x = 4
+window-padding-y = 4
+window-padding-balance = true
+
+# --- mouse ---
+mouse-scroll-multiplier = 0.85

@@ -1,0 +1,13 @@
+[user]
+	name = Ismail Tuzun
+	# email = set in ~/.gitconfig.local — see git/.gitconfig.local.example
+[init]
+	defaultBranch = development
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+# Machine-local overrides (email, signing key, etc.) — never committed
+[include]
+	path = ~/.gitconfig.local

@@ -1,0 +1,11 @@
+# Copy to ~/.gitconfig.local and fill in — NEVER commit the real file.
+# Loaded automatically by ~/.gitconfig via [include].
+
+[user]
+	# email = you@example.com
+
+# Optional commit signing
+# [user]
+#	signingkey = <key-id>
+# [commit]
+#	gpgsign = true

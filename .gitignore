@@ -1,0 +1,18 @@
+# Credentials — NEVER commit
+zsh/.zsh_custom/.env.zsh
+zsh/.zsh_custom/.local.zsh
+git/.gitconfig.local
+
+# Machine-local overrides
+.zsh_local
+
+# Tool-local state (personal allow-lists, etc.)
+.claude/settings.local.json
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
