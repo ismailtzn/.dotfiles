@@ -32,6 +32,7 @@
   # The list of segments shown on the left. Fill it with the most important segments.
   typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(
     os_icon                 # os identifier
+    my_docker               # docker container indicator
     dir                     # current directory
     vcs                     # git status
     # prompt_char           # prompt symbol
@@ -1744,6 +1745,14 @@
   # can slow down prompt by 1-2 milliseconds, so it's better to keep it turned off unless you
   # really need it.
   typeset -g POWERLEVEL9K_DISABLE_HOT_RELOAD=true
+
+  ###############################[ my_docker: container indicator ]###############################
+  # Show a minimal "docker" segment when running inside a Docker container.
+  function prompt_my_docker() {
+    [[ -f /.dockerenv ]] || return
+    p10k segment -f blue -i '🐳'
+  }
+  function instant_prompt_my_docker() { prompt_my_docker }
 
   # If p10k is already loaded, reload configuration.
   # This works even with POWERLEVEL9K_DISABLE_HOT_RELOAD=true.

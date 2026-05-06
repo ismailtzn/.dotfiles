@@ -19,6 +19,7 @@
   typeset -g POWERLEVEL9K_{LEFT,RIGHT}_SEGMENT_SEPARATOR=        # no powerline arrows
 
   typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(
+    my_docker    # docker container indicator
     dir          # current directory
     vcs          # git status
   )
@@ -109,6 +110,14 @@
   typeset -g POWERLEVEL9K_TIME_FOREGROUND=244
   typeset -g POWERLEVEL9K_TIME_FORMAT='%D{%H:%M:%S}'
   typeset -g POWERLEVEL9K_TIME_UPDATE_ON_COMMAND=false
+
+  # ── my_docker (container indicator) ───────────────────────────────────────────
+  # Show "docker" only when running inside a Docker container.
+  function prompt_my_docker() {
+    [[ -f /.dockerenv ]] || return
+    p10k segment -f blue -t 'docker'
+  }
+  function instant_prompt_my_docker() { prompt_my_docker }
 
   # ── Instant prompt ────────────────────────────────────────────────────────────
   typeset -g POWERLEVEL9K_INSTANT_PROMPT=verbose

@@ -6,6 +6,14 @@ set -euo pipefail
 
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Stow packages — single source of truth (used by usage, backup, stow loops)
+STOW_PACKAGES=(tmux zsh p10k git vim ghostty)
+
+# Devcontainer / VS Code dotfiles settings (override via env)
+: "${DOTFILES_REPO:=https://github.com/ismailtzn/.dotfiles.git}"
+: "${DOTFILES_INSTALL_SCRIPT:=install.sh}"
+: "${DOTFILES_TARGET_PATH:=~/dotfiles}"
+
 # ── Help ──────────────────────────────────────────────────────────────────────
 usage() {
     cat <<EOF
@@ -17,6 +25,9 @@ OPTIONS:
   -h, --help      Show this help message and exit
       --dry-run   Preview all steps without making any changes
       --restow    Only re-stow packages (skip installations, just update symlinks)
+      --no-chsh   Skip changing default shell to zsh (useful in non-interactive
+                  contexts like devcontainer dotfiles install where chsh hangs
+                  waiting for a password). Auto-skipped when stdin is not a TTY.
 
 WHAT IT DOES:
   1.  Install GNU Stow (via apt / apk / dnf on Linux, Homebrew on macOS)
@@ -26,7 +37,7 @@ WHAT IT DOES:
   4.  Clone TPM (Tmux Plugin Manager) — only if tmux is installed
   5.  Create ~/.zsh_custom/.env.zsh from .env.example if not already present
   6.  Back up any existing plain dotfiles to ~/dotfiles-backup-YYYYMMDD/
-  7.  Stow all packages: tmux zsh p10k git vim ghostty
+  7.  Stow all packages: ${STOW_PACKAGES[*]}
   8.  Install tmux plugins via TPM
   9.  Set zsh as the default shell
 
@@ -53,14 +64,22 @@ EOF
 
 DRY_RUN=false
 RESTOW_ONLY=false
+SKIP_CHSH=false
 for arg in "$@"; do
     case "$arg" in
         -h|--help)    usage; exit 0 ;;
         --dry-run)    DRY_RUN=true ;;
         --restow)     RESTOW_ONLY=true ;;
+        --no-chsh)    SKIP_CHSH=true ;;
         *)            echo "Unknown option: $arg" >&2; usage >&2; exit 1 ;;
     esac
 done
+
+# Auto-skip chsh when stdin isn't a TTY — chsh prompts for a password
+# under PAM and would hang forever in a devcontainer dotfiles-install context.
+if [[ ! -t 0 ]]; then
+    SKIP_CHSH=true
+fi
 
 log()  { echo "[dotfiles] $*"; }
 warn() { echo "[dotfiles] WARNING: $*" >&2; }
@@ -141,10 +160,16 @@ fi
 if ! $RESTOW_ONLY && command -v zsh &>/dev/null; then
     if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
         log "Installing oh-my-zsh..."
-        if run sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended; then
-            log "oh-my-zsh installed."
+        if $DRY_RUN; then
+            echo "[dry-run] sh -c \"\$(curl -fsSL .../install.sh)\" \"\" --unattended"
         else
-            warn "oh-my-zsh installation failed. Zsh will start with a minimal fallback config."
+            # Bypass run/eval — the installer body contains spaces & shell metachars
+            # that eval would re-parse. Run sh -c directly with proper quoting.
+            if sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended; then
+                log "oh-my-zsh installed."
+            else
+                warn "oh-my-zsh installation failed. Zsh will start with a minimal fallback config."
+            fi
         fi
     else
         log "oh-my-zsh already installed."
@@ -225,7 +250,7 @@ backup_dotfiles() {
     local backup_dir
     backup_dir="$HOME/dotfiles-backup-$(date +%Y%m%d)"
     local backed_up=0
-    for pkg in tmux zsh p10k git vim ghostty; do
+    for pkg in "${STOW_PACKAGES[@]}"; do
         [[ -d "$DOTFILES_DIR/$pkg" ]] || continue
         while IFS= read -r src; do
             local rel="${src#"$DOTFILES_DIR"/"$pkg"/}"
@@ -258,7 +283,7 @@ fi
 # ── 7. Stow all packages ──────────────────────────────────────────────────────
 log "Stowing packages..."
 cd "$DOTFILES_DIR"
-for pkg in tmux zsh p10k git vim ghostty; do
+for pkg in "${STOW_PACKAGES[@]}"; do
     log "  stow $pkg"
     run stow --restow --no-folding --dir="$DOTFILES_DIR" --target="$HOME" "$pkg" \
         2> >(grep -v "^BUG in find_stowed_path" >&2)
@@ -276,7 +301,9 @@ fi
 # ── 9. Set default shell to zsh ──────────────────────────────────────────────
 if ! $RESTOW_ONLY && command -v zsh &>/dev/null; then
     ZSH_BIN="$(command -v zsh)"
-    if [[ "$(basename "$SHELL")" != "zsh" ]]; then
+    if $SKIP_CHSH; then
+        log "Skipping chsh (--no-chsh or non-interactive). Run 'exec zsh' to use zsh."
+    elif [[ "$(basename "$SHELL")" != "zsh" ]]; then
         log "Setting zsh as default shell..."
         if ! grep -qxF "$ZSH_BIN" /etc/shells 2>/dev/null; then
             log "Adding $ZSH_BIN to /etc/shells..."
@@ -290,7 +317,8 @@ if ! $RESTOW_ONLY && command -v zsh &>/dev/null; then
                 warn "$ZSH_BIN is not in /etc/shells. To fix manually: echo '$ZSH_BIN' | sudo tee -a /etc/shells"
             fi
         fi
-        if run chsh -s "$ZSH_BIN" 2>/dev/null; then
+        # Close stdin so chsh can't hang on a password prompt even if PAM asks.
+        if run chsh -s "$ZSH_BIN" </dev/null 2>/dev/null; then
             log "Default shell set to zsh."
         else
             warn "Could not change default shell (chsh failed — this is normal in containers)."
@@ -299,6 +327,76 @@ if ! $RESTOW_ONLY && command -v zsh &>/dev/null; then
     else
         log "zsh is already the default shell."
     fi
+fi
+
+# ── 10. VS Code user settings (dotfiles auto-apply in remote/devcontainer) ───
+update_vscode_settings() {
+    local settings_file
+    if [[ "$OS" == "Darwin" ]]; then
+        settings_file="$HOME/Library/Application Support/Code/User/settings.json"
+    else
+        settings_file="$HOME/.config/Code/User/settings.json"
+    fi
+
+    local settings_dir
+    settings_dir="$(dirname "$settings_file")"
+    if [[ ! -d "$settings_dir" ]]; then
+        log "VS Code user dir not found ($settings_dir). Skipping settings update."
+        return
+    fi
+
+    if [[ -f "$settings_file" ]] && grep -q '"dotfiles\.repository"' "$settings_file"; then
+        log "VS Code settings.json already has dotfiles.repository — leaving alone."
+        return
+    fi
+
+    if [[ ! -f "$settings_file" ]]; then
+        log "Creating VS Code settings.json with dotfiles configuration..."
+        if ! $DRY_RUN; then
+            cat > "$settings_file" <<EOF
+{
+  "dotfiles.repository": "$DOTFILES_REPO",
+  "dotfiles.targetPath": "$DOTFILES_TARGET_PATH",
+  "dotfiles.installCommand": "$DOTFILES_INSTALL_SCRIPT"
+}
+EOF
+        fi
+        return
+    fi
+
+    if ! command -v jq &>/dev/null; then
+        warn "jq not found. Cannot safely merge into existing $settings_file."
+        warn "Add manually:"
+        warn "  \"dotfiles.repository\": \"$DOTFILES_REPO\","
+        warn "  \"dotfiles.targetPath\": \"$DOTFILES_TARGET_PATH\","
+        warn "  \"dotfiles.installCommand\": \"$DOTFILES_INSTALL_SCRIPT\""
+        return
+    fi
+
+    local tmp
+    tmp="$(mktemp)"
+    if jq --arg r "$DOTFILES_REPO" --arg t "$DOTFILES_TARGET_PATH" --arg i "$DOTFILES_INSTALL_SCRIPT" \
+        '. + {"dotfiles.repository":$r,"dotfiles.targetPath":$t,"dotfiles.installCommand":$i}' \
+        "$settings_file" > "$tmp" 2>/dev/null; then
+        if $DRY_RUN; then
+            echo "[dry-run] merge dotfiles keys into $settings_file"
+            rm -f "$tmp"
+        else
+            mv "$tmp" "$settings_file"
+            log "Updated VS Code settings.json with dotfiles keys."
+        fi
+    else
+        rm -f "$tmp"
+        warn "jq could not parse $settings_file (likely contains JSONC comments)."
+        warn "Add manually:"
+        warn "  \"dotfiles.repository\": \"$DOTFILES_REPO\","
+        warn "  \"dotfiles.targetPath\": \"$DOTFILES_TARGET_PATH\","
+        warn "  \"dotfiles.installCommand\": \"$DOTFILES_INSTALL_SCRIPT\""
+    fi
+}
+
+if ! $RESTOW_ONLY; then
+    update_vscode_settings
 fi
 
 log ""
