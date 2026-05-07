@@ -13,6 +13,7 @@ Works on **Linux** (Debian/Ubuntu/Fedora/Alpine, including devcontainers) and **
 | `git`     | `~/.gitconfig`, `~/.config/git/ignore`                                     |
 | `vim`     | `~/.vimrc`                                                                 |
 | `ghostty` | `~/.config/ghostty/config` — Ghostty terminal config                       |
+| `atuin`   | `~/.config/atuin/config.toml` — shell history, sync **disabled**           |
 
 **Not managed by Stow** (installed by `install.sh` or kept local):
 
@@ -46,11 +47,13 @@ The script will:
 2. Install oh-my-zsh
 3. Clone powerlevel10k, zsh-autosuggestions, zsh-completions, zsh-syntax-highlighting
 4. Clone TPM (Tmux Plugin Manager) — only if tmux is installed
-5. Create a stub `~/.zsh_custom/.env.zsh` for machine-local credentials
-6. Back up any existing dotfiles to `~/dotfiles-backup-YYYYMMDD/`
-7. Stow all packages (create symlinks in `$HOME`)
-8. Install tmux plugins automatically via TPM
-9. Set zsh as your default shell
+5. Install [atuin](https://atuin.sh) shell history binary into `~/.atuin/bin/`
+   (local-only, sync disabled; if install fails, Ctrl-R falls back to fzf)
+6. Create a stub `~/.zsh_custom/.env.zsh` for machine-local credentials
+7. Back up any existing dotfiles to `~/dotfiles-backup-YYYYMMDD/`
+8. Stow all packages (create symlinks in `$HOME`)
+9. Install tmux plugins automatically via TPM
+10. Set zsh as your default shell
 
 Pass `--dry-run` to preview all steps without making changes:
 
@@ -162,5 +165,5 @@ Before stowing, `install.sh` copies any existing plain files (non-symlinks) that
 cd ~/.dotfiles
 stow --restow --no-folding <package>
 # or re-stow everything:
-for pkg in tmux zsh p10k git vim ghostty; do stow --restow --no-folding $pkg; done
+for pkg in tmux zsh p10k git vim ghostty atuin; do stow --restow --no-folding $pkg; done
 ```

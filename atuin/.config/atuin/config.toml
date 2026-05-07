@@ -1,0 +1,45 @@
+# Atuin shell history config
+# Docs: https://docs.atuin.sh/configuration/config/
+
+# ── Sync ──────────────────────────────────────────────────────────────────────
+# Local-only — no remote server. Flip to true and run `atuin login` / `atuin
+# register` if a sync server is added later.
+auto_sync = false
+update_check = false
+# sync_address = "https://api.atuin.sh"
+# sync_frequency = "1h"
+
+# ── Search / UI ───────────────────────────────────────────────────────────────
+search_mode = "fuzzy"
+filter_mode = "global"
+filter_mode_shell_up_key_binding = "session"
+style = "compact"
+inline_height = 20
+show_preview = true
+show_help = true
+exit_mode = "return-original"
+enter_accept = true
+
+# ── History ───────────────────────────────────────────────────────────────────
+# Don't record commands prefixed with a space, mirroring HISTCONTROL=ignorespace.
+history_filter = [
+  "^ ",
+]
+# Skip secret-bearing commands from being captured at all.
+secrets_filter = true
+
+# ── Stats ─────────────────────────────────────────────────────────────────────
+common_subcommands = [
+  "cargo",
+  "cmake",
+  "docker",
+  "git",
+  "go",
+  "kubectl",
+  "npm",
+  "pnpm",
+  "stow",
+  "tmux",
+  "yarn",
+]
+common_prefix = ["sudo"]

@@ -7,7 +7,7 @@ set -euo pipefail
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Stow packages — single source of truth (used by usage, backup, stow loops)
-STOW_PACKAGES=(tmux zsh p10k git vim ghostty)
+STOW_PACKAGES=(tmux zsh p10k git vim ghostty atuin)
 
 # Devcontainer / VS Code dotfiles settings (override via env)
 : "${DOTFILES_REPO:=https://github.com/ismailtzn/.dotfiles.git}"
@@ -30,16 +30,22 @@ OPTIONS:
                   waiting for a password). Auto-skipped when stdin is not a TTY.
 
 WHAT IT DOES:
-  1.  Install GNU Stow (via apt / apk / dnf on Linux, Homebrew on macOS)
-  2.  Install oh-my-zsh (skipped if already present)
-  3.  Clone Powerlevel10k, zsh-autosuggestions, zsh-completions,
-      zsh-syntax-highlighting into the oh-my-zsh custom directory
-  4.  Clone TPM (Tmux Plugin Manager) — only if tmux is installed
-  5.  Create ~/.zsh_custom/.env.zsh from .env.example if not already present
-  6.  Back up any existing plain dotfiles to ~/dotfiles-backup-YYYYMMDD/
-  7.  Stow all packages: ${STOW_PACKAGES[*]}
-  8.  Install tmux plugins via TPM
-  9.  Set zsh as the default shell
+  - Install GNU Stow (via apt / apk / dnf on Linux, Homebrew on macOS)
+  - Install oh-my-zsh (skipped if already present)
+  - Clone Powerlevel10k, zsh-autosuggestions, zsh-completions,
+    zsh-syntax-highlighting into the oh-my-zsh custom directory
+  - Clone TPM (Tmux Plugin Manager) — only if tmux is installed
+  - Install atuin shell history (via official setup.atuin.sh) — local only,
+    sync disabled in atuin/.config/atuin/config.toml; on first run, seed the
+    DB by importing ~/.zsh_history (skipped on subsequent runs)
+  - Create ~/.zsh_custom/.env.zsh from .env.example if not already present
+  - Create git/.gitconfig.local from .gitconfig.local.example (gitignored,
+    stow-linked to ~/.gitconfig.local)
+  - Back up any existing plain dotfiles to ~/dotfiles-backup-YYYYMMDD/
+  - Stow all packages: ${STOW_PACKAGES[*]}
+  - Install tmux plugins via TPM
+  - Set zsh as the default shell
+  - Update VS Code user settings.json with dotfiles auto-apply keys
 
 QUICK START:
   git clone https://github.com/ismailtzn/.dotfiles.git ~/.dotfiles
@@ -139,7 +145,7 @@ install_packages() {
     fi
 }
 
-# ── 1. Dependencies ───────────────────────────────────────────────────────────
+# ── Dependencies ──────────────────────────────────────────────────────────────
 if $RESTOW_ONLY; then
     log "Restow-only mode: skipping installations, jumping to stow..."
 fi
@@ -156,7 +162,7 @@ if ! $RESTOW_ONLY; then
     fi
 fi
 
-# ── 2. Oh My Zsh ──────────────────────────────────────────────────────────────
+# ── Oh My Zsh ─────────────────────────────────────────────────────────────────
 if ! $RESTOW_ONLY && command -v zsh &>/dev/null; then
     if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
         log "Installing oh-my-zsh..."
@@ -186,7 +192,7 @@ fi
 
 ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
 
-# ── 3. Clone plugins and theme ────────────────────────────────────────────────
+# ── Clone plugins and theme ───────────────────────────────────────────────────
 clone_if_missing() {
     local url="$1" dest="$2"
     if [[ -d "$dest/.git" ]]; then
@@ -212,7 +218,7 @@ elif ! $RESTOW_ONLY; then
     log "Skipping zsh plugin cloning (oh-my-zsh not installed)."
 fi
 
-# ── 4. TPM (Tmux Plugin Manager) ─────────────────────────────────────────────
+# ── TPM (Tmux Plugin Manager) ─────────────────────────────────────────────────
 if ! $RESTOW_ONLY && command -v tmux &>/dev/null; then
     clone_if_missing "https://github.com/tmux-plugins/tpm" \
         "$HOME/.tmux/plugins/tpm"
@@ -220,7 +226,69 @@ elif ! $RESTOW_ONLY; then
     log "tmux not found. Skipping TPM installation."
 fi
 
-# ── 5. .env.zsh stub ──────────────────────────────────────────────────────────
+# ── Atuin (shell history) ─────────────────────────────────────────────────────
+# Local-only — sync is disabled in atuin/.config/atuin/config.toml.
+# Use the underlying cargo-dist installer (atuin-installer.sh) directly instead
+# of the setup.atuin.sh wrapper. The wrapper appends `eval "$(atuin init zsh)"`
+# to ~/.zshrc, which is a stow symlink into this repo and would clobber it.
+# Our .zz_atuin.zsh already runs `atuin init zsh --disable-up-arrow` (and
+# prepends ~/.atuin/bin to PATH), so the wrapper's rc edits are unwanted.
+# ATUIN_NO_MODIFY_PATH=1 tells atuin-installer.sh not to touch .zshrc / .zshenv
+# / .profile / .bashrc — same reason.
+# If install fails, .zz_atuin.zsh skips atuin init and Ctrl-R stays bound to fzf.
+if ! $RESTOW_ONLY; then
+    if command -v atuin &>/dev/null; then
+        log "atuin already installed: $(atuin --version 2>/dev/null | head -1)"
+    elif [[ -x "$HOME/.atuin/bin/atuin" ]]; then
+        log "atuin already installed at ~/.atuin/bin/atuin"
+    else
+        log "Installing atuin (binary only, no rc modifications)..."
+        if $DRY_RUN; then
+            echo "[dry-run] ATUIN_NO_MODIFY_PATH=1 curl -fsSL .../atuin-installer.sh | sh"
+        else
+            # NOTE: no `</dev/null` on the piped sh — that would override the
+            # pipe stdin and the installer would read EOF and exit immediately.
+            if curl --proto '=https' --tlsv1.2 -fsSL \
+                https://github.com/atuinsh/atuin/releases/latest/download/atuin-installer.sh \
+                | ATUIN_NO_MODIFY_PATH=1 sh; then
+                log "atuin installed."
+            else
+                warn "atuin install failed. Ctrl-R will fall back to fzf history search."
+                warn "To retry manually: curl -fsSL https://setup.atuin.sh | sh"
+            fi
+        fi
+    fi
+
+    # First-run history import: if the atuin DB doesn't exist yet, seed it from
+    # the user's existing shell history. Skipped on subsequent runs because
+    # the DB file persists and we don't want to double-import.
+    ATUIN_BIN=""
+    if command -v atuin &>/dev/null; then
+        ATUIN_BIN="$(command -v atuin)"
+    elif [[ -x "$HOME/.atuin/bin/atuin" ]]; then
+        ATUIN_BIN="$HOME/.atuin/bin/atuin"
+    fi
+    ATUIN_DB="$HOME/.local/share/atuin/history.db"
+    if [[ -n "$ATUIN_BIN" && ! -f "$ATUIN_DB" ]]; then
+        log "First-run atuin DB — importing existing shell history (atuin import auto)..."
+        if $DRY_RUN; then
+            echo "[dry-run] $ATUIN_BIN import auto"
+        else
+            # `import auto` reads $SHELL to pick the right history file
+            # (~/.zsh_history, ~/.bash_history, etc.). Default to zsh when
+            # $SHELL is unset (e.g. some devcontainer bootstraps).
+            if SHELL="${SHELL:-/bin/zsh}" "$ATUIN_BIN" import auto; then
+                log "Atuin history import complete."
+            else
+                warn "atuin import failed. Re-run manually: atuin import auto"
+            fi
+        fi
+    elif [[ -n "$ATUIN_BIN" ]]; then
+        log "atuin DB already exists at $ATUIN_DB — skipping import."
+    fi
+fi
+
+# ── .env.zsh stub ─────────────────────────────────────────────────────────────
 ENV_FILE="$HOME/.zsh_custom/.env.zsh"
 ENV_EXAMPLE="$DOTFILES_DIR/zsh/.zsh_custom/.env.example"
 if ! $RESTOW_ONLY && [[ ! -f "$ENV_FILE" ]]; then
@@ -233,7 +301,7 @@ elif ! $RESTOW_ONLY; then
     log "$ENV_FILE already exists — not overwriting."
 fi
 
-# ── 5b. .gitconfig.local stub (lives inside dotfiles/, gitignored, stow-linked) ──
+# ── .gitconfig.local stub (lives inside dotfiles/, gitignored, stow-linked) ───
 GITLOCAL_FILE="$DOTFILES_DIR/git/.gitconfig.local"
 GITLOCAL_EXAMPLE="$DOTFILES_DIR/git/.gitconfig.local.example"
 if ! $RESTOW_ONLY && [[ ! -f "$GITLOCAL_FILE" && -f "$GITLOCAL_EXAMPLE" ]]; then
@@ -245,7 +313,7 @@ elif ! $RESTOW_ONLY && [[ -f "$GITLOCAL_FILE" ]]; then
     log "$GITLOCAL_FILE already exists — not overwriting."
 fi
 
-# ── 6. Back up existing dotfiles ─────────────────────────────────────────────
+# ── Back up existing dotfiles ─────────────────────────────────────────────────
 backup_dotfiles() {
     local backup_dir
     backup_dir="$HOME/dotfiles-backup-$(date +%Y%m%d)"
@@ -280,7 +348,7 @@ else
     echo "[dry-run] backup_dotfiles (would copy existing plain files to ~/dotfiles-backup-YYYYMMDD/)"
 fi
 
-# ── 7. Stow all packages ──────────────────────────────────────────────────────
+# ── Stow all packages ─────────────────────────────────────────────────────────
 log "Stowing packages..."
 cd "$DOTFILES_DIR"
 for pkg in "${STOW_PACKAGES[@]}"; do
@@ -289,7 +357,7 @@ for pkg in "${STOW_PACKAGES[@]}"; do
         2> >(grep -v "^BUG in find_stowed_path" >&2)
 done
 
-# ── 8. Install tmux plugins via TPM ──────────────────────────────────────────
+# ── Install tmux plugins via TPM ──────────────────────────────────────────────
 TPM_INSTALL="$HOME/.tmux/plugins/tpm/bin/install_plugins"
 if [[ -x "$TPM_INSTALL" ]]; then
     log "Installing tmux plugins via TPM..."
@@ -298,7 +366,7 @@ else
     log "TPM install script not found. After starting tmux, press prefix+I to install plugins."
 fi
 
-# ── 9. Set default shell to zsh ──────────────────────────────────────────────
+# ── Set default shell to zsh ──────────────────────────────────────────────────
 if ! $RESTOW_ONLY && command -v zsh &>/dev/null; then
     ZSH_BIN="$(command -v zsh)"
     if $SKIP_CHSH; then
@@ -329,7 +397,7 @@ if ! $RESTOW_ONLY && command -v zsh &>/dev/null; then
     fi
 fi
 
-# ── 10. VS Code user settings (dotfiles auto-apply in remote/devcontainer) ───
+# ── VS Code user settings (dotfiles auto-apply in remote/devcontainer) ────────
 update_vscode_settings() {
     local settings_file
     if [[ "$OS" == "Darwin" ]]; then
