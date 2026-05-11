@@ -22,12 +22,14 @@ Usage: bash install.sh [OPTIONS]
 Bootstrap dotfiles on a new machine using GNU Stow.
 
 OPTIONS:
-  -h, --help      Show this help message and exit
-      --dry-run   Preview all steps without making any changes
-      --restow    Only re-stow packages (skip installations, just update symlinks)
-      --no-chsh   Skip changing default shell to zsh (useful in non-interactive
-                  contexts like devcontainer dotfiles install where chsh hangs
-                  waiting for a password). Auto-skipped when stdin is not a TTY.
+  -h, --help            Show this help message and exit
+      --dry-run         Preview all steps without making any changes
+      --restow          Only re-stow packages (skip installations, just update
+                        symlinks)
+      --no-chsh         Skip changing default shell to zsh (useful in non-
+                        interactive contexts like devcontainer dotfiles install
+                        where chsh hangs waiting for a password). Auto-skipped
+                        when stdin is not a TTY.
 
 WHAT IT DOES:
   - Install GNU Stow (via apt / apk / dnf on Linux, Homebrew on macOS)
@@ -73,11 +75,11 @@ RESTOW_ONLY=false
 SKIP_CHSH=false
 for arg in "$@"; do
     case "$arg" in
-        -h|--help)    usage; exit 0 ;;
-        --dry-run)    DRY_RUN=true ;;
-        --restow)     RESTOW_ONLY=true ;;
-        --no-chsh)    SKIP_CHSH=true ;;
-        *)            echo "Unknown option: $arg" >&2; usage >&2; exit 1 ;;
+        -h|--help)         usage; exit 0 ;;
+        --dry-run)         DRY_RUN=true ;;
+        --restow)          RESTOW_ONLY=true ;;
+        --no-chsh)         SKIP_CHSH=true ;;
+        *)                 echo "Unknown option: $arg" >&2; usage >&2; exit 1 ;;
     esac
 done
 

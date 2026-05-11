@@ -43,17 +43,18 @@ bash install.sh
 
 The script will:
 
-1. Install GNU Stow (via apt / apk / dnf on Linux, Homebrew on macOS)
-2. Install oh-my-zsh
-3. Clone powerlevel10k, zsh-autosuggestions, zsh-completions, zsh-syntax-highlighting
-4. Clone TPM (Tmux Plugin Manager) — only if tmux is installed
-5. Install [atuin](https://atuin.sh) shell history binary into `~/.atuin/bin/`
-   (local-only, sync disabled; if install fails, Ctrl-R falls back to fzf)
-6. Create a stub `~/.zsh_custom/.env.zsh` for machine-local credentials
-7. Back up any existing dotfiles to `~/dotfiles-backup-YYYYMMDD/`
-8. Stow all packages (create symlinks in `$HOME`)
-9. Install tmux plugins automatically via TPM
-10. Set zsh as your default shell
+- Install GNU Stow (via apt / apk / dnf on Linux, Homebrew on macOS)
+- Install oh-my-zsh
+- Clone powerlevel10k, zsh-autosuggestions, zsh-completions, zsh-syntax-highlighting
+- Clone TPM (Tmux Plugin Manager) — only if tmux is installed
+- Install [atuin](https://atuin.sh) shell history binary into `~/.atuin/bin/`
+  (local-only, sync disabled; if install fails, Ctrl-R falls back to fzf;
+  on first run, seeds the DB by importing `~/.zsh_history`)
+- Create a stub `~/.zsh_custom/.env.zsh` for machine-local credentials
+- Back up any existing dotfiles to `~/dotfiles-backup-YYYYMMDD/`
+- Stow all packages (create symlinks in `$HOME`)
+- Install tmux plugins automatically via TPM
+- Set zsh as your default shell
 
 Pass `--dry-run` to preview all steps without making changes:
 
