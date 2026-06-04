@@ -1,10 +1,5 @@
-# CUDA
-if [[ -d /usr/local/cuda/bin ]]; then export PATH=/usr/local/cuda/bin:$PATH; fi
-# export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
-# CUSTOM OPENCV
-if [[ -d /usr/local/OpenCV ]]; then export PYTHONPATH=/usr/local/OpenCV/lib/python3.12/dist-packages/:$PYTHONPATH; fi
-
+# Put host specific paths to directly ~/.zsh_custom/.host_paths.zsh, and put general paths here.
 
 export NVM_DIR="$HOME/.nvm"
 # Lazy-load nvm: only initialize on first use of nvm/node/npm/npx

@@ -23,4 +23,4 @@ window-padding-y = 4
 window-padding-balance = true
 
 # --- mouse ---
-mouse-scroll-multiplier = 0.85
+# mouse-scroll-multiplier = 0.85
